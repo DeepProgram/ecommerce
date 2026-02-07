@@ -190,7 +190,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
                     <button
                       key={img.id}
                       onClick={() => setSelectedImage(index)}
-                      className={`w-48 h-48 md:w-64 md:h-64 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
+                      className={`w-48 h-48 md:w-48 md:h-48 flex-shrink-0 rounded-lg overflow-hidden border-2 transition-all ${
                         selectedImage === index
                           ? 'border-brand-600 ring-2 ring-brand-200'
                           : 'border-gray-200 hover:border-gray-300'

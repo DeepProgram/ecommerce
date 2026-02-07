@@ -35,9 +35,9 @@ export default function Header() {
   return (
     <header className="sticky top-0 z-50 bg-white border-b border-gray-200 shadow-sm">
       <div className="max-w-[1280px] mx-auto px-16 md:px-24">
-        <div className="flex items-center h-[56px]">
+        <div className="flex items-center justify-between h-[56px] gap-16">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-8 text-brand-600 mr-24">
+          <Link href="/" className="flex items-center gap-8 text-brand-600 flex-shrink-0">
             <span className="text-[24px]">🛍️</span>
             <span className="text-[18px] font-semibold hidden sm:inline">Shop</span>
           </Link>
@@ -45,7 +45,7 @@ export default function Header() {
           {/* Search Bar - Desktop */}
           <form 
             onSubmit={handleSearch}
-            className="flex-1 max-w-[640px] mr-24 hidden md:block"
+            className="flex-1 max-w-[560px] mx-24 hidden md:block"
           >
             <div className="relative">
               <input
@@ -68,7 +68,7 @@ export default function Header() {
           <div className="flex-1 md:hidden"></div>
 
           {/* Right Side Actions */}
-          <div className="flex items-center gap-16">
+          <div className="flex items-center gap-16 flex-shrink-0">
             {/* Cart */}
             <button 
               className="relative hover:opacity-70 transition-opacity"
