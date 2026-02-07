@@ -1,0 +1,250 @@
+services:
+  db-primary:
+    image: bitnami/postgresql
+    volumes:
+      - postgres_primary_data:/bitnami/postgresql
+    environment:
+      POSTGRESQL_USERNAME: ecommerce_user
+      POSTGRESQL_PASSWORD: ecommerce_pass
+      POSTGRESQL_DATABASE: ecommerce
+      POSTGRESQL_REPLICATION_MODE: master
+      POSTGRESQL_REPLICATION_USER: replicator
+      POSTGRESQL_REPLICATION_PASSWORD: replicator_pass
+      POSTGRESQL_NUM_SYNCHRONOUS_REPLICAS: 0
+    ports:
+      - "5432:5432"
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce_user -d ecommerce"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  db-replica-1:
+    image: bitnami/postgresql
+    volumes:
+      - postgres_replica_1_data:/bitnami/postgresql
+    environment:
+      POSTGRESQL_USERNAME: ecommerce_user
+      POSTGRESQL_PASSWORD: ecommerce_pass
+      POSTGRESQL_DATABASE: ecommerce
+      POSTGRESQL_REPLICATION_MODE: slave
+      POSTGRESQL_REPLICATION_USER: replicator
+      POSTGRESQL_REPLICATION_PASSWORD: replicator_pass
+      POSTGRESQL_MASTER_HOST: db-primary
+      POSTGRESQL_MASTER_PORT_NUMBER: 5432
+    ports:
+      - "5433:5432"
+    depends_on:
+      db-primary:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ecommerce_user -d ecommerce"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3.12-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    environment:
+      RABBITMQ_DEFAULT_USER: ecommerce_user
+      RABBITMQ_DEFAULT_PASS: ecommerce_pass
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    networks:
+      - ecommerce-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: sh -c "python manage.py makemigrations && python manage.py migrate && python manage.py collectstatic --noinput && python manage.py runserver 0.0.0.0:8000"
+    volumes:
+      - ./backend:/app
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    expose:
+      - "8000"
+    environment:
+      DATABASE_URL: postgresql://ecommerce_user:ecommerce_pass@db-primary:5432/ecommerce
+      DATABASE_REPLICA_URL: postgresql://ecommerce_user:ecommerce_pass@db-replica-1:5432/ecommerce
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://ecommerce_user:ecommerce_pass@rabbitmq:5672/
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      DJANGO_SETTINGS_MODULE: config.settings
+      DEBUG: "True"
+      SECRET_KEY: dev-secret-key-change-in-production
+    depends_on:
+      db-primary:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  worker-search:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python worker.py search
+    volumes:
+      - ./backend:/app
+    environment:
+      DATABASE_URL: postgresql://ecommerce_user:ecommerce_pass@db-primary:5432/ecommerce
+      DATABASE_REPLICA_URL: postgresql://ecommerce_user:ecommerce_pass@db-replica-1:5432/ecommerce
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://ecommerce_user:ecommerce_pass@rabbitmq:5672/
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      DJANGO_SETTINGS_MODULE: config.settings
+    depends_on:
+      db-primary:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  worker-order:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python worker.py order
+    volumes:
+      - ./backend:/app
+    environment:
+      DATABASE_URL: postgresql://ecommerce_user:ecommerce_pass@db-primary:5432/ecommerce
+      DATABASE_REPLICA_URL: postgresql://ecommerce_user:ecommerce_pass@db-replica-1:5432/ecommerce
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://ecommerce_user:ecommerce_pass@rabbitmq:5672/
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      DJANGO_SETTINGS_MODULE: config.settings
+    depends_on:
+      db-primary:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  worker-email:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    command: python worker.py email
+    volumes:
+      - ./backend:/app
+    environment:
+      DATABASE_URL: postgresql://ecommerce_user:ecommerce_pass@db-primary:5432/ecommerce
+      DATABASE_REPLICA_URL: postgresql://ecommerce_user:ecommerce_pass@db-replica-1:5432/ecommerce
+      REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://ecommerce_user:ecommerce_pass@rabbitmq:5672/
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      DJANGO_SETTINGS_MODULE: config.settings
+    depends_on:
+      db-primary:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - backend
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  adminer:
+    image: adminer:latest
+    ports:
+      - "8080:8080"
+    environment:
+      ADMINER_DEFAULT_SERVER: db-primary
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost
+    networks:
+      - ecommerce-network
+    restart: unless-stopped
+
+volumes:
+  postgres_primary_data:
+  postgres_replica_1_data:
+  elasticsearch_data:
+  static_volume:
+  media_volume:
+
+networks:
+  ecommerce-network:
+    driver: bridge

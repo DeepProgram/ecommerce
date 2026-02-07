@@ -1,0 +1,43 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-gray-300;
+  }
+  
+  body {
+    @apply bg-gray-100 text-gray-900 font-sans antialiased;
+  }
+}
+
+@layer components {
+  .container-padding {
+    @apply px-16 md:px-24 lg:px-32;
+  }
+  
+  .btn-primary {
+    @apply h-48 px-24 rounded-lg bg-brand-600 text-white font-semibold 
+           hover:bg-brand-700 disabled:bg-gray-200 disabled:text-gray-500 
+           transition-colors duration-200;
+  }
+  
+  .btn-secondary {
+    @apply h-48 px-24 rounded-lg border border-gray-300 bg-white text-gray-900 
+           font-semibold hover:bg-gray-100 transition-colors duration-200;
+  }
+  
+  .input-field {
+    @apply h-44 px-16 rounded-pill border border-gray-200 
+           focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-opacity-20;
+  }
+  
+  .card {
+    @apply bg-white rounded-lg border border-gray-200 shadow-card;
+  }
+  
+  .product-card {
+    @apply card p-12 hover:border-gray-300 transition-all duration-200;
+  }
+}
