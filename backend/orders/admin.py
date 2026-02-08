@@ -11,7 +11,7 @@ class OrderItemInline(admin.TabularInline):
 class PaymentInline(admin.TabularInline):
     model = Payment
     extra = 0
-    readonly_fields = ['created_at']
+    readonly_fields = ['created_at', 'updated_at']
 
 
 @admin.register(Order)
@@ -25,9 +25,10 @@ class OrderAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ['transaction_id', 'order', 'payment_method', 'amount', 'is_successful', 'created_at']
-    list_filter = ['payment_method', 'is_successful', 'created_at']
+    list_display = ['transaction_id', 'order', 'payment_method', 'amount', 'status', 'created_at']
+    list_filter = ['payment_method', 'status', 'created_at']
     search_fields = ['transaction_id', 'order__order_number']
+    readonly_fields = ['created_at', 'updated_at']
 
 
 class CartItemInline(admin.TabularInline):

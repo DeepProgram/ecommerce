@@ -13,6 +13,7 @@ class OrderItemSerializer(serializers.ModelSerializer):
 
 class OrderSerializer(serializers.ModelSerializer):
     items = OrderItemSerializer(many=True, read_only=True)
+    payment_method = serializers.SerializerMethodField()
     
     class Meta:
         model = Order
@@ -22,9 +23,13 @@ class OrderSerializer(serializers.ModelSerializer):
             'shipping_full_name', 'shipping_phone', 'shipping_address_line1',
             'shipping_address_line2', 'shipping_city', 'shipping_state',
             'shipping_postal_code', 'shipping_country',
-            'items', 'created_at'
+            'payment_method', 'items', 'created_at'
         ]
         read_only_fields = ['order_number', 'created_at']
+    
+    def get_payment_method(self, obj):
+        payment = obj.payments.first()
+        return payment.payment_method if payment else None
 
 
 class OrderCreateSerializer(serializers.Serializer):

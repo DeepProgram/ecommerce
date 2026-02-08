@@ -5,7 +5,7 @@ from rest_framework.views import APIView
 from django.db import transaction
 from decimal import Decimal
 
-from .models import Order, OrderItem, Cart, CartItem
+from .models import Order, OrderItem, Cart, CartItem, Payment
 from .serializers import (
     OrderSerializer, OrderCreateSerializer,
     CartSerializer, CartItemSerializer
@@ -221,6 +221,14 @@ class OrderCreateView(APIView):
             
             for item_data in order_items_data:
                 OrderItem.objects.create(order=order, **item_data)
+            
+            # Create Payment record
+            Payment.objects.create(
+                order=order,
+                payment_method=serializer.validated_data['payment_method'],
+                amount=total,
+                status='pending'
+            )
             
             cart.items.all().delete()
             

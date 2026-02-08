@@ -39,11 +39,12 @@ export const cartService = {
 };
 
 export const orderService = {
-  async createOrder(shippingAddressId: number, billingAddressId: number, paymentMethod: string) {
+  async createOrder(shippingAddressId: number, billingAddressId: number, paymentMethod: string, notes?: string) {
     const response = await api.post('/api/orders/orders/create/', {
       shipping_address_id: shippingAddressId,
       billing_address_id: billingAddressId,
       payment_method: paymentMethod,
+      notes: notes || '',
     });
     return response.data;
   },

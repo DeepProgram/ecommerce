@@ -3,14 +3,34 @@
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import { cartService, Cart } from '@/services/cartService';
+import { useRouter } from 'next/navigation';
+import { cartService, Cart, orderService } from '@/services/cartService';
+import { addressService, AddressFormData } from '@/services/addressService';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function CheckoutPage() {
+  const router = useRouter();
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [paymentMethod, setPaymentMethod] = useState('card');
+  const [processing, setProcessing] = useState(false);
+  const [paymentMethod, setPaymentMethod] = useState('credit_card');
+  const [orderNotes, setOrderNotes] = useState('');
+  
+  // Shipping form state
+  const [shippingForm, setShippingForm] = useState({
+    full_name: '',
+    phone: '',
+    address_line1: '',
+    address_line2: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: '',
+  });
+
+  // Billing same as shipping checkbox
+  const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
 
   useEffect(() => {
     loadCart();
@@ -53,6 +73,57 @@ export default function CheckoutPage() {
     }, 0);
   }, [cart]);
 
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setShippingForm(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSubmitOrder = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!hasItems) return;
+    
+    setProcessing(true);
+    setError('');
+    
+    try {
+      // Create shipping address
+      const shippingAddressData: AddressFormData = {
+        address_type: 'shipping',
+        ...shippingForm,
+      };
+      const shippingAddress = await addressService.createAddress(shippingAddressData);
+      
+      // Create billing address (same or separate)
+      let billingAddress;
+      if (billingSameAsShipping) {
+        const billingAddressData: AddressFormData = {
+          ...shippingAddressData,
+          address_type: 'billing',
+        };
+        billingAddress = await addressService.createAddress(billingAddressData);
+      } else {
+        billingAddress = shippingAddress; // For now, use same address
+      }
+      
+      // Create order
+      const order = await orderService.createOrder(
+        shippingAddress.id,
+        billingAddress.id,
+        paymentMethod,
+        orderNotes
+      );
+      
+      // Redirect to order success page
+      router.push(`/orders/${order.order_number}`);
+      
+    } catch (err: any) {
+      console.error('Error creating order:', err);
+      setError(err.response?.data?.error || 'Failed to create order. Please try again.');
+    } finally {
+      setProcessing(false);
+    }
+  };
+
   const hasItems = cart?.items && cart.items.length > 0;
 
   const inputClass =
@@ -83,7 +154,9 @@ export default function CheckoutPage() {
               {loading ? 'Loading your order...' : hasItems ? 'Complete your order details' : 'Your cart is empty'}
             </p>
             {error && (
-              <div className="mt-12 text-[13px] text-danger">{error}</div>
+              <div className="mt-12 px-16 py-12 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
+                {error}
+              </div>
             )}
           </div>
 
@@ -111,64 +184,166 @@ export default function CheckoutPage() {
             <div className="md:flex md:gap-24 lg:gap-32">
               {/* Left: Forms */}
               <div className="flex-1 px-16 md:px-24 md:pr-0 pb-24 md:pb-32 min-w-0 space-y-16">
-                {/* Shipping */}
-                <div className="bg-white border border-gray-200 rounded-xl p-20 shadow-sm">
-                  <h2 className="text-[16px] font-bold text-gray-900 mb-16">Shipping Address</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
-                    <div>
-                      <label className="block text-[12px] text-gray-600 mb-6">First Name</label>
-                      <input className={inputClass} placeholder="John" />
+                <form onSubmit={handleSubmitOrder} className="space-y-16">
+                  {/* Shipping */}
+                  <div className="bg-white border border-gray-200 rounded-xl p-20 shadow-sm">
+                    <h2 className="text-[16px] font-bold text-gray-900 mb-16">Shipping Address</h2>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                      <div>
+                        <label className="block text-[12px] text-gray-600 mb-6">First Name *</label>
+                        <input 
+                          name="full_name"
+                          value={shippingForm.full_name}
+                          onChange={handleInputChange}
+                          className={inputClass} 
+                          placeholder="John"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] text-gray-600 mb-6">Phone *</label>
+                        <input 
+                          name="phone"
+                          value={shippingForm.phone}
+                          onChange={handleInputChange}
+                          className={inputClass} 
+                          placeholder="+1 555 123 4567"
+                          required
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-[12px] text-gray-600 mb-6">Address *</label>
+                        <input 
+                          name="address_line1"
+                          value={shippingForm.address_line1}
+                          onChange={handleInputChange}
+                          className={inputClass} 
+                          placeholder="123 Main St"
+                          required
+                        />
+                      </div>
+                      <div className="md:col-span-2">
+                        <label className="block text-[12px] text-gray-600 mb-6">Apartment, suite, etc. (optional)</label>
+                        <input 
+                          name="address_line2"
+                          value={shippingForm.address_line2}
+                          onChange={handleInputChange}
+                          className={inputClass} 
+                          placeholder="Apt 4B"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] text-gray-600 mb-6">City *</label>
+                        <input 
+                          name="city"
+                          value={shippingForm.city}
+                          onChange={handleInputChange}
+                          className={inputClass} 
+                          placeholder="San Francisco"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] text-gray-600 mb-6">State/Province *</label>
+                        <input 
+                          name="state"
+                          value={shippingForm.state}
+                          onChange={handleInputChange}
+                          className={inputClass} 
+                          placeholder="California"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] text-gray-600 mb-6">Postal Code *</label>
+                        <input 
+                          name="postal_code"
+                          value={shippingForm.postal_code}
+                          onChange={handleInputChange}
+                          className={inputClass} 
+                          placeholder="94105"
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[12px] text-gray-600 mb-6">Country *</label>
+                        <input 
+                          name="country"
+                          value={shippingForm.country}
+                          onChange={handleInputChange}
+                          className={inputClass} 
+                          placeholder="United States"
+                          required
+                        />
+                      </div>
                     </div>
-                    <div>
-                      <label className="block text-[12px] text-gray-600 mb-6">Last Name</label>
-                      <input className={inputClass} placeholder="Doe" />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-[12px] text-gray-600 mb-6">Address</label>
-                      <input className={inputClass} placeholder="123 Main St" />
-                    </div>
-                    <div>
-                      <label className="block text-[12px] text-gray-600 mb-6">City</label>
-                      <input className={inputClass} placeholder="San Francisco" />
-                    </div>
-                    <div>
-                      <label className="block text-[12px] text-gray-600 mb-6">Postal Code</label>
-                      <input className={inputClass} placeholder="94105" />
-                    </div>
-                    <div>
-                      <label className="block text-[12px] text-gray-600 mb-6">Country</label>
-                      <input className={inputClass} placeholder="United States" />
-                    </div>
-                    <div>
-                      <label className="block text-[12px] text-gray-600 mb-6">Phone</label>
-                      <input className={inputClass} placeholder="+1 555 123 4567" />
+                    
+                    <div className="mt-16">
+                      <label className="flex items-center gap-8 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={billingSameAsShipping}
+                          onChange={(e) => setBillingSameAsShipping(e.target.checked)}
+                          className="w-16 h-16 rounded border-gray-300 text-brand-600 focus:ring-brand-600"
+                        />
+                        <span className="text-[13px] text-gray-700">Billing address same as shipping</span>
+                      </label>
                     </div>
                   </div>
-                </div>
 
                 {/* Payment */}
                 <div className="bg-white border border-gray-200 rounded-xl p-20 shadow-sm">
                   <h2 className="text-[16px] font-bold text-gray-900 mb-16">Payment</h2>
                   <div className="space-y-12">
-                    <label className="flex items-center gap-10 p-12 rounded-lg border border-gray-200 cursor-pointer">
+                    <label className="flex items-center gap-10 p-12 rounded-lg border border-gray-200 cursor-pointer hover:border-brand-600 transition-colors">
                       <input
                         type="radio"
                         name="payment"
-                        checked={paymentMethod === 'card'}
-                        onChange={() => setPaymentMethod('card')}
+                        value="credit_card"
+                        checked={paymentMethod === 'credit_card'}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
                         className="w-16 h-16 text-brand-600 focus:ring-brand-600"
                       />
                       <div>
-                        <div className="text-[14px] font-semibold text-gray-900">Credit / Debit Card</div>
+                        <div className="text-[14px] font-semibold text-gray-900">Credit Card</div>
                         <div className="text-[12px] text-gray-500">Visa, Mastercard, Amex</div>
                       </div>
                     </label>
-                    <label className="flex items-center gap-10 p-12 rounded-lg border border-gray-200 cursor-pointer">
+                    <label className="flex items-center gap-10 p-12 rounded-lg border border-gray-200 cursor-pointer hover:border-brand-600 transition-colors">
                       <input
                         type="radio"
                         name="payment"
+                        value="debit_card"
+                        checked={paymentMethod === 'debit_card'}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        className="w-16 h-16 text-brand-600 focus:ring-brand-600"
+                      />
+                      <div>
+                        <div className="text-[14px] font-semibold text-gray-900">Debit Card</div>
+                        <div className="text-[12px] text-gray-500">Bank debit cards</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-10 p-12 rounded-lg border border-gray-200 cursor-pointer hover:border-brand-600 transition-colors">
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="upi"
+                        checked={paymentMethod === 'upi'}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
+                        className="w-16 h-16 text-brand-600 focus:ring-brand-600"
+                      />
+                      <div>
+                        <div className="text-[14px] font-semibold text-gray-900">UPI</div>
+                        <div className="text-[12px] text-gray-500">Pay using UPI apps</div>
+                      </div>
+                    </label>
+                    <label className="flex items-center gap-10 p-12 rounded-lg border border-gray-200 cursor-pointer hover:border-brand-600 transition-colors">
+                      <input
+                        type="radio"
+                        name="payment"
+                        value="cod"
                         checked={paymentMethod === 'cod'}
-                        onChange={() => setPaymentMethod('cod')}
+                        onChange={(e) => setPaymentMethod(e.target.value)}
                         className="w-16 h-16 text-brand-600 focus:ring-brand-600"
                       />
                       <div>
@@ -178,24 +353,9 @@ export default function CheckoutPage() {
                     </label>
                   </div>
 
-                  {paymentMethod === 'card' && (
-                    <div className="mt-16 grid grid-cols-1 md:grid-cols-2 gap-12">
-                      <div className="md:col-span-2">
-                        <label className="block text-[12px] text-gray-600 mb-6">Card Number</label>
-                        <input className={inputClass} placeholder="1234 5678 9012 3456" />
-                      </div>
-                      <div>
-                        <label className="block text-[12px] text-gray-600 mb-6">Expiry Date</label>
-                        <input className={inputClass} placeholder="MM/YY" />
-                      </div>
-                      <div>
-                        <label className="block text-[12px] text-gray-600 mb-6">CVC</label>
-                        <input className={inputClass} placeholder="123" />
-                      </div>
-                      <div className="md:col-span-2">
-                        <label className="block text-[12px] text-gray-600 mb-6">Name on Card</label>
-                        <input className={inputClass} placeholder="John Doe" />
-                      </div>
+                  {(paymentMethod === 'credit_card' || paymentMethod === 'debit_card') && (
+                    <div className="mt-16 p-12 bg-blue-50 border border-blue-200 rounded-lg text-[13px] text-blue-700">
+                      💳 Card payment will be processed securely on the next step.
                     </div>
                   )}
                 </div>
@@ -204,11 +364,15 @@ export default function CheckoutPage() {
                 <div className="bg-white border border-gray-200 rounded-xl p-20 shadow-sm">
                   <h2 className="text-[16px] font-bold text-gray-900 mb-16">Order Notes</h2>
                   <textarea
+                    name="notes"
+                    value={orderNotes}
+                    onChange={(e) => setOrderNotes(e.target.value)}
                     className="w-full min-h-[120px] p-12 rounded-lg border border-gray-300 bg-white text-[14px] text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-opacity-20 focus:border-brand-600"
                     placeholder="Any special instructions for delivery?"
                   />
                 </div>
-              </div>
+              </form>
+            </div>
 
               {/* Right: Summary */}
               <div className="md:w-[360px] lg:w-[380px] flex-shrink-0 px-16 md:px-0 md:pr-24 pb-32 md:pb-0">
@@ -274,14 +438,16 @@ export default function CheckoutPage() {
                       <span>${subtotal.toFixed(2)}</span>
                     </div>
 
-                    <button
-                      className={`w-full h-40 rounded-lg font-semibold text-[14px] flex items-center justify-center transition-colors ${
-                        hasItems ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
-                      }`}
-                      disabled={!hasItems}
-                    >
-                      Place Order
-                    </button>
+                  <button
+                    type="submit"
+                    onClick={handleSubmitOrder}
+                    className={`w-full h-40 rounded-lg font-semibold text-[14px] flex items-center justify-center transition-colors ${
+                      hasItems && !processing ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
+                    }`}
+                    disabled={!hasItems || processing}
+                  >
+                    {processing ? 'Processing...' : 'Place Order'}
+                  </button>
 
                     <div className="mt-12 text-[12px] text-gray-500 text-center">
                       By placing your order, you agree to our terms and privacy policy.

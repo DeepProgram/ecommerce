@@ -106,20 +106,31 @@ class Payment(models.Model):
         ('wallet', 'Wallet'),
         ('cod', 'Cash on Delivery'),
     ]
+    
+    PAYMENT_STATUS_CHOICES = [
+        ('pending', 'Pending'),
+        ('processing', 'Processing'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+        ('refunded', 'Refunded'),
+        ('cancelled', 'Cancelled'),
+    ]
 
     order = models.ForeignKey(Order, on_delete=models.CASCADE, related_name='payments')
     payment_method = models.CharField(max_length=20, choices=PAYMENT_METHOD_CHOICES)
     amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=PAYMENT_STATUS_CHOICES, default='pending')
     transaction_id = models.CharField(max_length=255, blank=True)
     payment_data = models.JSONField(default=dict, blank=True)
-    is_successful = models.BooleanField(default=False)
+    failure_reason = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         ordering = ['-created_at']
 
     def __str__(self):
-        return f"Payment {self.transaction_id} - {self.order.order_number}"
+        return f"Payment {self.transaction_id or self.id} - {self.order.order_number} ({self.status})"
 
 
 class Cart(models.Model):
