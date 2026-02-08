@@ -531,15 +531,23 @@ function AccordionItem({
         className="w-full flex items-center justify-between py-16 text-left hover:text-brand-600 transition-colors"
       >
         <span className="text-[15px] font-semibold text-gray-900">{title}</span>
-        <span className={`text-[20px] transition-transform ${isOpen ? 'rotate-180' : ''}`}>
+        <span
+          className={`text-[20px] transition-transform duration-300 ${
+            isOpen ? 'rotate-180' : ''
+          }`}
+        >
           ⌄
         </span>
       </button>
-      {isOpen && (
-        <div className="pb-16">
-          {children}
+      <div
+        className={`grid transition-all duration-300 ease-in-out ${
+          isOpen ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+        }`}
+      >
+        <div className="overflow-hidden">
+          <div className="pb-16">{children}</div>
         </div>
-      )}
+      </div>
     </div>
   );
 }

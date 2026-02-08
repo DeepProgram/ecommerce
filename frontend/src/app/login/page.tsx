@@ -34,61 +34,79 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100">
-      <div className="card w-full max-w-md p-32">
-        <h1 className="text-h1 mb-24 text-center">Login</h1>
-
-        {error && (
-          <div className="mb-16 p-16 bg-red-50 border border-danger rounded-lg">
-            <p className="text-body-sm text-danger">{error}</p>
-          </div>
-        )}
-
-        <form onSubmit={handleSubmit} className="space-y-16">
-          <div>
-            <label htmlFor="email" className="block text-body-sm text-gray-700 mb-8">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input-field w-full"
-              required
-            />
+    <main className="min-h-[calc(100dvh-120px)] flex items-center justify-center bg-gray-50 md:fixed md:inset-0 md:top-[56px]">
+      <div className="w-full max-w-[920px] mx-auto px-8 md:px-24 py-8 md:py-0">
+        <div className="grid md:grid-cols-[1.1fr_1fr] overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-card">
+          <div className="hidden md:flex flex-col justify-center bg-brand-600 text-white p-32">
+            <div className="max-w-[320px]">
+              <h1 className="text-[28px] leading-[34px] font-bold mb-12">Welcome back</h1>
+              <p className="text-[14px] leading-[22px] text-white/90">
+                Log in to track orders, save favorites, and checkout faster.
+              </p>
+            </div>
           </div>
 
-          <div>
-            <label htmlFor="password" className="block text-body-sm text-gray-700 mb-8">
-              Password
-            </label>
-            <input
-              id="password"
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input-field w-full"
-              required
-            />
+          <div className="p-24 md:p-32">
+            <div className="text-center mb-16">
+              <h2 className="text-[20px] leading-[26px] font-bold text-gray-900">User Login</h2>
+              <p className="text-[12px] text-gray-500 mt-4">Enter your credentials to continue</p>
+            </div>
+
+            {error && (
+              <div className="mb-16 p-12 bg-red-50 border border-danger rounded-lg">
+                <p className="text-[12px] text-danger">{error}</p>
+              </div>
+            )}
+
+            <form onSubmit={handleSubmit} className="space-y-12">
+              <div>
+                <label htmlFor="email" className="block text-[12px] text-gray-700 mb-4">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full h-[27px] px-8 rounded-md border border-gray-200 bg-gray-50 text-[12px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-opacity-20"
+                  required
+                />
+              </div>
+
+              <div>
+                <label htmlFor="password" className="block text-[12px] text-gray-700 mb-4">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full h-[27px] px-8 rounded-md border border-gray-200 bg-gray-50 text-[12px] text-gray-900 focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-opacity-20"
+                  required
+                />
+              </div>
+
+              <div className="pt-8">
+                <button
+                  type="submit"
+                  className="btn-primary w-full text-[13px] h-[36px]"
+                  disabled={loading}
+                >
+                  {loading ? 'Loading...' : 'Login'}
+                </button>
+              </div>
+            </form>
+
+            <p className="text-[12px] text-gray-500 text-center mt-16">
+              Don't have an account?{' '}
+              <Link href="/register" className="text-brand-600 hover:text-brand-700">
+                Register
+              </Link>
+            </p>
           </div>
-
-          <button
-            type="submit"
-            className="btn-primary w-full"
-            disabled={loading}
-          >
-            {loading ? 'Loading...' : 'Login'}
-          </button>
-        </form>
-
-        <p className="text-body-sm text-gray-500 text-center mt-24">
-          Don't have an account?{' '}
-          <Link href="/register" className="text-brand-600 hover:text-brand-700">
-            Register
-          </Link>
-        </p>
+        </div>
       </div>
-    </div>
+    </main>
   );
 }
