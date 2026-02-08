@@ -7,12 +7,14 @@ import { useRouter } from 'next/navigation';
 import { cartService, Cart, orderService } from '@/services/cartService';
 import { addressService, AddressFormData } from '@/services/addressService';
 import ProtectedRoute from '@/components/ProtectedRoute';
+import ErrorModal from '@/components/ErrorModal';
 
 export default function CheckoutPage() {
   const router = useRouter();
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  const [showErrorModal, setShowErrorModal] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState('credit_card');
   const [orderNotes, setOrderNotes] = useState('');
@@ -80,10 +82,11 @@ export default function CheckoutPage() {
 
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!hasItems) return;
+    if (!hasItems || processing) return; // Prevent multiple submissions
     
     setProcessing(true);
     setError('');
+    setShowErrorModal(false);
     
     try {
       // Create shipping address
@@ -114,14 +117,17 @@ export default function CheckoutPage() {
       );
       
       // Redirect to order success page
+      // Cart will be naturally updated when user navigates back or page reloads
       router.push(`/orders/${order.order_number}`);
       
     } catch (err: any) {
       console.error('Error creating order:', err);
-      setError(err.response?.data?.error || 'Failed to create order. Please try again.');
-    } finally {
-      setProcessing(false);
+      const errorMessage = err.response?.data?.error || 'Failed to create order. Please try again.';
+      setError(errorMessage);
+      setShowErrorModal(true);
+      setProcessing(false); // Re-enable button only on error
     }
+    // Don't set processing to false on success - let navigation handle it
   };
 
   const hasItems = cart?.items && cart.items.length > 0;
@@ -153,11 +159,6 @@ export default function CheckoutPage() {
             <p className="text-[13px] md:text-[14px] text-gray-500 mt-6">
               {loading ? 'Loading your order...' : hasItems ? 'Complete your order details' : 'Your cart is empty'}
             </p>
-            {error && (
-              <div className="mt-12 px-16 py-12 bg-red-50 border border-red-200 rounded-lg text-[13px] text-red-700">
-                {error}
-              </div>
-            )}
           </div>
 
           {!loading && !hasItems ? (
@@ -465,6 +466,14 @@ export default function CheckoutPage() {
           )}
         </div>
       </main>
+      
+      {/* Error Modal */}
+      <ErrorModal
+        isOpen={showErrorModal}
+        onClose={() => setShowErrorModal(false)}
+        title="Order Failed"
+        message={error}
+      />
     </ProtectedRoute>
   );
 }

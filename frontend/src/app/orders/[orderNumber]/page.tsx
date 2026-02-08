@@ -4,15 +4,19 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { orderService } from '@/services/cartService';
+import { useCartStore } from '@/store/cartStore';
 import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function OrderSuccessPage() {
   const params = useParams();
+  const { resetCount } = useCartStore();
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
   useEffect(() => {
+    // Reset cart count when order success page loads
+    resetCount();
     loadOrder();
   }, []);
 
