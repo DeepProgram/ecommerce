@@ -10,6 +10,7 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
   
   const { setAuth } = useAuthStore();
@@ -18,17 +19,27 @@ export default function LoginPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+    setSuccess(false);
     setLoading(true);
 
     try {
       const response = await authService.login({ email, password });
+      
+      // Store tokens immediately so the next API call can use them
+      localStorage.setItem('access_token', response.access);
+      localStorage.setItem('refresh_token', response.refresh);
+      
       const profile = await authService.getProfile();
       
       setAuth(profile, response.access, response.refresh);
-      router.push('/');
+      setSuccess(true);
+      
+      // Show success briefly before redirect
+      setTimeout(() => {
+        router.push('/');
+      }, 500);
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Login failed. Please try again.');
-    } finally {
       setLoading(false);
     }
   };
@@ -55,6 +66,12 @@ export default function LoginPage() {
             {error && (
               <div className="mb-16 p-12 bg-red-50 border border-danger rounded-lg">
                 <p className="text-[12px] text-danger">{error}</p>
+              </div>
+            )}
+
+            {success && (
+              <div className="mb-16 p-12 bg-green-50 border border-success rounded-lg">
+                <p className="text-[12px] text-success">Login successful! Redirecting...</p>
               </div>
             )}
 
@@ -91,9 +108,9 @@ export default function LoginPage() {
                 <button
                   type="submit"
                   className="btn-primary w-full text-[13px] h-[36px]"
-                  disabled={loading}
+                  disabled={loading || success}
                 >
-                  {loading ? 'Loading...' : 'Login'}
+                  {success ? 'Success!' : loading ? 'Loading...' : 'Login'}
                 </button>
               </div>
             </form>
