@@ -14,23 +14,40 @@ export default function ProductsPage() {
   const [loading, setLoading] = useState(true);
   const [showMobileFilters, setShowMobileFilters] = useState(false);
   const [sortBy, setSortBy] = useState('popular');
+  const [filters, setFilters] = useState<any>({});
 
   const category = searchParams.get('category');
   const searchQuery = searchParams.get('q');
 
   useEffect(() => {
     loadProducts();
-  }, [category, searchQuery, sortBy]);
+  }, [category, searchQuery, sortBy, filters]);
 
   const loadProducts = async () => {
     setLoading(true);
     try {
-      const params: any = {};
-      if (category) params.category = category;
-      if (searchQuery) params.search = searchQuery;
-      if (sortBy) params.ordering = getSortParam(sortBy);
+      let data;
       
-      const data = await catalogService.getProducts(params);
+      // Use search API if there's a search query
+      if (searchQuery) {
+        const params: any = {
+          sort: getElasticsearchSortParam(sortBy),
+          ...filters,
+        };
+        if (category) params.category = category;
+        
+        data = await catalogService.searchProducts(searchQuery, params);
+      } else {
+        // Use regular products API for browsing
+        const params: any = {
+          ...filters,
+        };
+        if (category) params.category = category;
+        if (sortBy) params.ordering = getDjangoSortParam(sortBy);
+        
+        data = await catalogService.getProducts(params);
+      }
+      
       setProducts(data.results || data);
     } catch (error) {
       console.error('Error loading products:', error);
@@ -39,7 +56,18 @@ export default function ProductsPage() {
     }
   };
 
-  const getSortParam = (sort: string) => {
+  const getElasticsearchSortParam = (sort: string) => {
+    const sortMap: any = {
+      'popular': '_score',      // Elasticsearch relevance score
+      'price_low': 'price_asc',
+      'price_high': 'price_desc',
+      'newest': 'newest',
+      'rating': 'rating',
+    };
+    return sortMap[sort] || '_score';
+  };
+
+  const getDjangoSortParam = (sort: string) => {
     const sortMap: any = {
       'popular': '-review_count',
       'price_low': 'base_price',
@@ -48,6 +76,10 @@ export default function ProductsPage() {
       'rating': '-average_rating',
     };
     return sortMap[sort] || '-review_count';
+  };
+
+  const handleFiltersChange = (newFilters: any) => {
+    setFilters(newFilters);
   };
 
   return (
@@ -98,7 +130,7 @@ export default function ProductsPage() {
               className="flex-1 md:flex-initial md:w-auto h-40 px-12 md:px-16 border border-gray-300 rounded-lg text-[14px] font-medium text-gray-900 bg-white hover:border-brand-600 transition-colors focus:outline-none focus:ring-2 focus:ring-brand-600 focus:ring-opacity-20 appearance-none"
               style={{ backgroundImage: 'url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' fill=\'none\' viewBox=\'0 0 24 24\' stroke=\'%236B7280\'%3E%3Cpath stroke-linecap=\'round\' stroke-linejoin=\'round\' stroke-width=\'2\' d=\'M19 9l-7 7-7-7\'%3E%3C/path%3E%3C/svg%3E")', backgroundRepeat: 'no-repeat', backgroundPosition: 'right 8px center', backgroundSize: '20px', paddingRight: '36px' }}
             >
-              <option value="popular">Most Popular</option>
+              <option value="popular">{searchQuery ? 'Most Relevant' : 'Most Popular'}</option>
               <option value="newest">Newest</option>
               <option value="price_low">Price: Low to High</option>
               <option value="price_high">Price: High to Low</option>
@@ -111,7 +143,7 @@ export default function ProductsPage() {
         <div className="md:flex md:gap-20 lg:gap-24">
           {/* Desktop Filters Sidebar */}
           <div className="hidden md:block md:px-24 md:w-[240px] lg:w-[260px] flex-shrink-0">
-            <FilterSidebar />
+            <FilterSidebar onFiltersChange={handleFiltersChange} />
           </div>
 
           {/* Products Grid */}

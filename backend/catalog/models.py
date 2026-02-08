@@ -1,5 +1,7 @@
 from django.db import models
 from django.utils.text import slugify
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
 
 class Category(models.Model):
     name = models.CharField(max_length=255)
@@ -170,3 +172,44 @@ class Review(models.Model):
 
     def __str__(self):
         return f"{self.product.name} - {self.user.email} - {self.rating}★"
+
+
+# Elasticsearch indexing signals
+@receiver(post_save, sender=Product)
+def index_product_on_save(sender, instance, created, **kwargs):
+    """Index product in Elasticsearch when it's created or updated"""
+    from config.rabbitmq import publish_product_event
+    try:
+        publish_product_event(instance.id, 'index')
+    except Exception as e:
+        print(f"Error publishing product event: {e}")
+
+
+@receiver(post_delete, sender=Product)
+def delete_product_on_delete(sender, instance, **kwargs):
+    """Remove product from Elasticsearch when it's deleted"""
+    from config.rabbitmq import publish_product_event
+    try:
+        publish_product_event(instance.id, 'delete')
+    except Exception as e:
+        print(f"Error publishing product delete event: {e}")
+
+
+@receiver(post_save, sender=Variant)
+def index_product_on_variant_save(sender, instance, created, **kwargs):
+    """Re-index product when a variant is created or updated"""
+    from config.rabbitmq import publish_product_event
+    try:
+        publish_product_event(instance.product.id, 'index')
+    except Exception as e:
+        print(f"Error publishing product event: {e}")
+
+
+@receiver(post_delete, sender=Variant)
+def index_product_on_variant_delete(sender, instance, **kwargs):
+    """Re-index product when a variant is deleted"""
+    from config.rabbitmq import publish_product_event
+    try:
+        publish_product_event(instance.product.id, 'index')
+    except Exception as e:
+        print(f"Error publishing product event: {e}")

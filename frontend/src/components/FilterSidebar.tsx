@@ -1,41 +1,88 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { catalogService } from '@/services/catalogService';
 
-export default function FilterSidebar() {
-  const [priceRange, setPriceRange] = useState([0, 1000]);
-  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-  const [selectedSizes, setSelectedSizes] = useState<string[]>([]);
-  const [selectedColors, setSelectedColors] = useState<string[]>([]);
-  const [selectedRating, setSelectedRating] = useState<number | null>(null);
+interface FilterSidebarProps {
+  onFiltersChange?: (filters: any) => void;
+}
 
-  const categories = ['Women', 'Men', 'Shoes', 'Accessories'];
-  const sizes = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-  const colors = [
-    { name: 'Black', hex: '#000000' },
-    { name: 'White', hex: '#FFFFFF' },
-    { name: 'Red', hex: '#EF4444' },
-    { name: 'Blue', hex: '#3B82F6' },
-    { name: 'Green', hex: '#10B981' },
-    { name: 'Yellow', hex: '#F59E0B' },
-  ];
+export default function FilterSidebar({ onFiltersChange }: FilterSidebarProps) {
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const [priceRange, setPriceRange] = useState([0, 500]);
+  const [selectedBrand, setSelectedBrand] = useState<string>('');
+  const [selectedCategory, setSelectedCategory] = useState<string>(searchParams.get('category') || '');
+  const [inStockOnly, setInStockOnly] = useState(false);
+  const [brands, setBrands] = useState<string[]>([]);
+  const [categories, setCategories] = useState<any[]>([]);
 
-  const toggleCategory = (cat: string) => {
-    setSelectedCategories(prev =>
-      prev.includes(cat) ? prev.filter(c => c !== cat) : [...prev, cat]
-    );
+  useEffect(() => {
+    loadFiltersData();
+  }, []);
+
+  const loadFiltersData = async () => {
+    try {
+      // Load categories
+      const categoriesData = await catalogService.getCategories();
+      // Handle both array response and object with results property
+      const categoriesArray = Array.isArray(categoriesData) 
+        ? categoriesData 
+        : categoriesData.results || [];
+      setCategories(categoriesArray);
+      
+      // Load brands (we'll get them from products for now)
+      const productsData = await catalogService.getProducts({ limit: 100 });
+      const productsArray = Array.isArray(productsData)
+        ? productsData
+        : productsData.results || [];
+      
+      const uniqueBrands = [...new Set(
+        productsArray
+          .filter((p: any) => p.brand)
+          .map((p: any) => p.brand.name)
+      )].sort();
+      setBrands(uniqueBrands);
+    } catch (error) {
+      console.error('Error loading filter data:', error);
+    }
   };
 
-  const toggleSize = (size: string) => {
-    setSelectedSizes(prev =>
-      prev.includes(size) ? prev.filter(s => s !== size) : [...prev, size]
-    );
+  const applyFilters = () => {
+    const filters: any = {};
+    
+    if (selectedBrand) filters.brand = selectedBrand;
+    if (selectedCategory) filters.category = selectedCategory;
+    if (priceRange[1] < 500) {
+      filters.min_price = priceRange[0];
+      filters.max_price = priceRange[1];
+    }
+    if (inStockOnly) filters.in_stock = true;
+    
+    // Notify parent component
+    if (onFiltersChange) {
+      onFiltersChange(filters);
+    }
+    
+    // Update URL params for browsing
+    if (!searchParams.get('q')) {
+      const params = new URLSearchParams();
+      if (selectedCategory) params.set('category', selectedCategory);
+      if (selectedBrand) params.set('brand', selectedBrand);
+      router.push(`/products?${params.toString()}`);
+    }
   };
 
-  const toggleColor = (color: string) => {
-    setSelectedColors(prev =>
-      prev.includes(color) ? prev.filter(c => c !== color) : [...prev, color]
-    );
+  const clearAllFilters = () => {
+    setPriceRange([0, 500]);
+    setSelectedBrand('');
+    setSelectedCategory('');
+    setInStockOnly(false);
+    if (onFiltersChange) {
+      onFiltersChange({});
+    }
+    router.push('/products');
   };
 
   return (
@@ -43,7 +90,10 @@ export default function FilterSidebar() {
       <div className="bg-white rounded-xl border border-gray-200 p-20">
         <div className="flex items-center justify-between mb-20">
           <h3 className="text-[16px] font-bold text-gray-900">Filters</h3>
-          <button className="text-[13px] text-brand-600 hover:text-brand-700 font-medium">
+          <button 
+            onClick={clearAllFilters}
+            className="text-[13px] text-brand-600 hover:text-brand-700 font-medium"
+          >
             Clear All
           </button>
         </div>
@@ -53,18 +103,46 @@ export default function FilterSidebar() {
           <h4 className="text-[14px] font-semibold text-gray-900 mb-12">Category</h4>
           <div className="space-y-8">
             {categories.map((cat) => (
-              <label key={cat} className="flex items-center gap-8 cursor-pointer">
+              <label key={cat.slug} className="flex items-center gap-8 cursor-pointer">
                 <input
-                  type="checkbox"
-                  checked={selectedCategories.includes(cat)}
-                  onChange={() => toggleCategory(cat)}
-                  className="w-16 h-16 rounded border-gray-300 text-brand-600 focus:ring-brand-600"
+                  type="radio"
+                  name="category"
+                  checked={selectedCategory === cat.slug}
+                  onChange={() => {
+                    setSelectedCategory(cat.slug);
+                    setTimeout(applyFilters, 100);
+                  }}
+                  className="w-16 h-16 text-brand-600 focus:ring-brand-600"
                 />
-                <span className="text-[14px] text-gray-700">{cat}</span>
+                <span className="text-[14px] text-gray-700">{cat.name}</span>
               </label>
             ))}
           </div>
         </div>
+
+        {/* Brands */}
+        {brands.length > 0 && (
+          <div className="mb-24 pb-24 border-b border-gray-200">
+            <h4 className="text-[14px] font-semibold text-gray-900 mb-12">Brand</h4>
+            <div className="space-y-8 max-h-[200px] overflow-y-auto">
+              {brands.map((brand) => (
+                <label key={brand} className="flex items-center gap-8 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="brand"
+                    checked={selectedBrand === brand}
+                    onChange={() => {
+                      setSelectedBrand(brand);
+                      setTimeout(applyFilters, 100);
+                    }}
+                    className="w-16 h-16 text-brand-600 focus:ring-brand-600"
+                  />
+                  <span className="text-[14px] text-gray-700">{brand}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Price Range */}
         <div className="mb-24 pb-24 border-b border-gray-200">
@@ -73,87 +151,34 @@ export default function FilterSidebar() {
             <input
               type="range"
               min="0"
-              max="1000"
+              max="500"
               value={priceRange[1]}
               onChange={(e) => setPriceRange([0, parseInt(e.target.value)])}
+              onMouseUp={applyFilters}
+              onTouchEnd={applyFilters}
               className="w-full accent-brand-600"
             />
             <div className="flex items-center justify-between text-[13px] text-gray-600">
               <span>${priceRange[0]}</span>
-              <span>${priceRange[1]}</span>
+              <span>${priceRange[1] === 500 ? '500+' : `$${priceRange[1]}`}</span>
             </div>
           </div>
         </div>
 
-        {/* Sizes */}
-        <div className="mb-24 pb-24 border-b border-gray-200">
-          <h4 className="text-[14px] font-semibold text-gray-900 mb-12">Size</h4>
-          <div className="flex flex-wrap gap-8">
-            {sizes.map((size) => (
-              <button
-                key={size}
-                onClick={() => toggleSize(size)}
-                className={`w-40 h-40 rounded-lg border text-[13px] font-medium transition-all ${
-                  selectedSizes.includes(size)
-                    ? 'border-brand-600 bg-brand-50 text-brand-600'
-                    : 'border-gray-300 bg-white text-gray-700 hover:border-brand-600'
-                }`}
-              >
-                {size}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Colors */}
-        <div className="mb-24 pb-24 border-b border-gray-200">
-          <h4 className="text-[14px] font-semibold text-gray-900 mb-12">Color</h4>
-          <div className="flex flex-wrap gap-12">
-            {colors.map((color) => (
-              <button
-                key={color.name}
-                onClick={() => toggleColor(color.name)}
-                className={`w-32 h-32 rounded-full border-2 transition-all ${
-                  selectedColors.includes(color.name)
-                    ? 'border-brand-600 scale-110'
-                    : 'border-gray-300 hover:border-brand-600'
-                }`}
-                style={{ backgroundColor: color.hex }}
-                title={color.name}
-              />
-            ))}
-          </div>
-        </div>
-
-        {/* Rating */}
+        {/* Stock Availability */}
         <div>
-          <h4 className="text-[14px] font-semibold text-gray-900 mb-12">Rating</h4>
-          <div className="space-y-8">
-            {[4, 3, 2, 1].map((rating) => (
-              <label key={rating} className="flex items-center gap-8 cursor-pointer">
-                <input
-                  type="radio"
-                  name="rating"
-                  checked={selectedRating === rating}
-                  onChange={() => setSelectedRating(rating)}
-                  className="w-16 h-16 text-brand-600 focus:ring-brand-600"
-                />
-                <div className="flex items-center gap-4">
-                  {[...Array(5)].map((_, i) => (
-                    <span
-                      key={i}
-                      className={`text-[14px] ${
-                        i < rating ? 'text-rating' : 'text-gray-300'
-                      }`}
-                    >
-                      ★
-                    </span>
-                  ))}
-                  <span className="text-[13px] text-gray-600">& Up</span>
-                </div>
-              </label>
-            ))}
-          </div>
+          <label className="flex items-center gap-8 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={inStockOnly}
+              onChange={(e) => {
+                setInStockOnly(e.target.checked);
+                setTimeout(applyFilters, 100);
+              }}
+              className="w-16 h-16 rounded border-gray-300 text-brand-600 focus:ring-brand-600"
+            />
+            <span className="text-[14px] text-gray-700">In Stock Only</span>
+          </label>
         </div>
       </div>
     </div>

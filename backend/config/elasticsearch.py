@@ -175,17 +175,39 @@ def search_products(query, filters=None, page=1, page_size=20, sort_by='_score')
     es = get_es_client()
     index_name = 'products'
     
+    # Build the search query with both fuzzy and prefix matching
     search_query = {
         'bool': {
-            'must': [
+            'should': [
+                # Exact and fuzzy matches (higher priority)
                 {
                     'multi_match': {
                         'query': query,
-                        'fields': ['name^3', 'description', 'brand^2', 'category'],
-                        'fuzziness': 'AUTO'
+                        'fields': ['name^5', 'brand^3', 'description^2', 'category'],
+                        'fuzziness': 'AUTO',
+                        'prefix_length': 1,
+                        'boost': 3  # Prioritize exact/fuzzy matches
+                    }
+                },
+                # Prefix matches for partial words (e.g., "flor" matches "floral")
+                {
+                    'multi_match': {
+                        'query': query,
+                        'fields': ['name^3', 'brand^2', 'description', 'category'],
+                        'type': 'phrase_prefix',
+                        'boost': 2  # Good priority for prefix matches
+                    }
+                },
+                # Wildcard for very flexible matching
+                {
+                    'multi_match': {
+                        'query': f'*{query}*',
+                        'fields': ['name^2', 'description', 'brand'],
+                        'boost': 1  # Lower priority
                     }
                 }
             ],
+            'minimum_should_match': 1,  # At least one should clause must match
             'filter': [
                 {'term': {'is_active': True}}
             ]
