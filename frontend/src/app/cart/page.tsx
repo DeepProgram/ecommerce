@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { cartService, Cart } from '@/services/cartService';
+import { CartItemSkeleton } from '@/components/Skeletons';
 
 export default function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
@@ -47,12 +48,25 @@ export default function CartPage() {
   const handleQtyChange = async (itemId: number, nextQty: number) => {
     if (nextQty < 1) return;
     setUpdatingItemId(itemId);
+    
+    // Optimistically update the UI
+    if (cart?.items) {
+      const updatedItems = cart.items.map((item: any) =>
+        item.id === itemId ? { ...item, quantity: nextQty } : item
+      );
+      setCart({ ...cart, items: updatedItems });
+    }
+    
     try {
       await cartService.updateCartItem(itemId, nextQty);
-      await loadCart();
+      // Refresh cart data in background without showing loading state
+      const freshCart = await cartService.getCart();
+      setCart(freshCart);
     } catch (err) {
       console.error('Error updating cart item:', err);
       setError('Failed to update item quantity.');
+      // Reload to restore correct state on error
+      await loadCart();
     } finally {
       setUpdatingItemId(null);
     }
@@ -60,12 +74,23 @@ export default function CartPage() {
 
   const handleRemoveItem = async (itemId: number) => {
     setRemovingItemId(itemId);
+    
+    // Optimistically remove from UI
+    if (cart?.items) {
+      const updatedItems = cart.items.filter((item: any) => item.id !== itemId);
+      setCart({ ...cart, items: updatedItems });
+    }
+    
     try {
       await cartService.removeCartItem(itemId);
-      await loadCart();
+      // Refresh cart data in background without showing loading state
+      const freshCart = await cartService.getCart();
+      setCart(freshCart);
     } catch (err) {
       console.error('Error removing cart item:', err);
       setError('Failed to remove item.');
+      // Reload to restore correct state on error
+      await loadCart();
     } finally {
       setRemovingItemId(null);
     }
@@ -83,7 +108,7 @@ export default function CartPage() {
   const hasItems = cart?.items && cart.items.length > 0;
 
   return (
-    <main className="min-h-screen bg-white md:bg-gray-50">
+    <main className="bg-white md:bg-gray-50 md:min-h-[calc(100vh-56px)]">
       {/* Header */}
       <div className="hidden md:block bg-white border-b border-gray-200">
         <div className="max-w-[1280px] mx-auto px-16 md:px-24 py-12">
@@ -112,16 +137,9 @@ export default function CartPage() {
           {/* Items */}
           <div className="flex-1 px-16 md:px-24 md:pr-0 pb-24 md:pb-32 min-w-0">
             {loading ? (
-              <div className="space-y-16">
-                {Array.from({ length: 3 }).map((_, i) => (
-                  <div key={i} className="flex gap-16 p-16 border-b border-gray-200 animate-pulse">
-                    <div className="w-80 h-80 bg-gray-200 rounded"></div>
-                    <div className="flex-1">
-                      <div className="h-16 bg-gray-200 rounded mb-8"></div>
-                      <div className="h-12 bg-gray-200 rounded w-1/2 mb-12"></div>
-                      <div className="h-20 bg-gray-200 rounded w-1/4"></div>
-                    </div>
-                  </div>
+              <div className="space-y-18">
+                {Array.from({ length: 2 }).map((_, i) => (
+                  <CartItemSkeleton key={i} />
                 ))}
               </div>
             ) : hasItems ? (
@@ -134,7 +152,7 @@ export default function CartPage() {
 
                   return (
                     <div key={item.id} className="flex gap-16 p-16 border-b border-gray-200 bg-white md:rounded-xl md:border md:border-gray-200 md:shadow-sm">
-                      <div className="w-80 h-80 md:w-96 md:h-96 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 relative">
+                      <div className="w-48 h-48 md:w-56 md:h-56 bg-gray-100 rounded-lg overflow-hidden flex-shrink-0 relative">
                         {imageUrl ? (
                           <Image
                             src={imageUrl}
@@ -143,7 +161,7 @@ export default function CartPage() {
                             className="object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-[20px]">
+                          <div className="w-full h-full flex items-center justify-center text-gray-400 text-[32px]">
                             🛍️
                           </div>
                         )}
@@ -175,18 +193,18 @@ export default function CartPage() {
                             <button
                               onClick={() => handleQtyChange(item.id, item.quantity - 1)}
                               disabled={item.quantity <= 1 || isUpdating}
-                              className="w-36 h-36 border border-gray-300 rounded flex items-center justify-center text-[16px] hover:border-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-32 h-32 border border-gray-300 rounded flex items-center justify-center text-[18px] hover:border-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               aria-label="Decrease quantity"
                             >
                               −
                             </button>
-                            <span className="w-40 text-center text-[14px] font-semibold text-gray-900">
+                            <span className="w-32 text-center text-[14px] font-semibold text-gray-900">
                               {item.quantity}
                             </span>
                             <button
                               onClick={() => handleQtyChange(item.id, item.quantity + 1)}
                               disabled={isUpdating}
-                              className="w-36 h-36 border border-gray-300 rounded flex items-center justify-center text-[16px] hover:border-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-32 h-32 border border-gray-300 rounded flex items-center justify-center text-[18px] hover:border-brand-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                               aria-label="Increase quantity"
                             >
                               +
@@ -206,9 +224,9 @@ export default function CartPage() {
                 })}
               </div>
             ) : (
-              <div className="flex items-center justify-center min-h-[300px] md:min-h-[400px] bg-white md:rounded-xl md:border md:border-gray-200">
+              <div className="flex items-center justify-center min-h-[300px] md:min-h-[400px] bg-white md:rounded-xl md:border md:border-gray-200 pt-16 pb-16">
                 <div className="text-center px-24">
-                  <div className="w-80 h-80 mx-auto mb-20 bg-gray-100 rounded-full flex items-center justify-center text-[32px]">
+                  <div className="w-64 h-64 mx-auto mb-16 bg-gray-100 rounded-full flex items-center justify-center text-[40px]">
                     🛒
                   </div>
                   <h3 className="text-[18px] font-bold text-gray-900 mb-8">Your cart is empty</h3>
@@ -255,7 +273,7 @@ export default function CartPage() {
 
               <Link
                 href="/checkout"
-                className={`w-full h-44 rounded-lg font-semibold text-[14px] flex items-center justify-center transition-colors ${
+                className={`w-full h-40 rounded-lg font-semibold text-[14px] flex items-center justify-center transition-colors ${
                   hasItems ? 'bg-brand-600 text-white hover:bg-brand-700' : 'bg-gray-200 text-gray-500 cursor-not-allowed'
                 }`}
                 aria-disabled={!hasItems}

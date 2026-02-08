@@ -173,14 +173,49 @@ export function ProductDetailSkeleton() {
 
 export function CartItemSkeleton() {
   return (
-    <div className="flex gap-16 p-16 border-b border-gray-200 animate-pulse">
-      <div className="w-80 h-80 bg-gray-200 rounded"></div>
-      <div className="flex-1">
-        <div className="h-16 bg-gray-200 rounded mb-8"></div>
-        <div className="h-12 bg-gray-200 rounded w-1/2 mb-12"></div>
-        <div className="h-20 bg-gray-200 rounded w-1/4"></div>
+    <>
+      {/* Mobile skeleton – matches actual cart item spacing exactly */}
+      <div className="md:hidden flex border-b border-gray-200 animate-pulse" style={{ gap: 16, padding: 16 }}>
+        <div className="bg-gray-200 rounded-lg flex-shrink-0" style={{ width: 48, height: 48 }}></div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between" style={{ gap: 12 }}>
+            <div>
+              <div className="bg-gray-200 rounded" style={{ height: 21, width: 120, marginBottom: 26.5 }}></div>
+              <div className="bg-gray-200 rounded" style={{ height: 17, width: 160, marginBottom: 8 }}></div>
+            </div>
+            <div className="bg-gray-200 rounded" style={{ height: 21, width: 50 }}></div>
+          </div>
+          <div className="flex items-center justify-between" style={{ marginTop: 12, gap: 12 }}>
+            <div className="flex items-center" style={{ gap: 8 }}>
+              <div className="bg-gray-200 rounded border border-gray-200" style={{ width: 32, height: 32 }}></div>
+              <div className="bg-gray-200 rounded" style={{ width: 32, height: 20 }}></div>
+              <div className="bg-gray-200 rounded border border-gray-200" style={{ width: 32, height: 32 }}></div>
+            </div>
+            <div className="bg-gray-200 rounded" style={{ height: 17, width: 44 }}></div>
+          </div>
+        </div>
       </div>
-    </div>
+
+      {/* Desktop skeleton – untouched */}
+      <div className="hidden md:flex gap-16 p-16 border-b border-gray-200 bg-white rounded-xl border-gray-200 shadow-sm animate-pulse">
+        <div className="w-56 h-56 bg-gray-200 rounded-lg flex-shrink-0 self-start"></div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-start justify-between gap-12 mb-8">
+            <div className="h-16 bg-gray-200 rounded w-1/3"></div>
+            <div className="h-16 bg-gray-200 rounded w-1/6"></div>
+          </div>
+          <div className="h-12 bg-gray-200 rounded w-1/2 mb-12"></div>
+          <div className="flex items-center justify-between gap-12">
+            <div className="flex items-center gap-8">
+              <div className="w-32 h-32 bg-gray-200 rounded"></div>
+              <div className="w-32 h-16 bg-gray-200 rounded"></div>
+              <div className="w-32 h-32 bg-gray-200 rounded"></div>
+            </div>
+            <div className="h-12 bg-gray-200 rounded w-60"></div>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }
 
