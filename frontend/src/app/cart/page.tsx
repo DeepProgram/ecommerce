@@ -5,6 +5,8 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { cartService, Cart } from '@/services/cartService';
 import { CartItemSkeleton } from '@/components/Skeletons';
+import { useCartStore } from '@/store/cartStore';
+import ProtectedRoute from '@/components/ProtectedRoute';
 
 export default function CartPage() {
   const [cart, setCart] = useState<Cart | null>(null);
@@ -12,6 +14,7 @@ export default function CartPage() {
   const [updatingItemId, setUpdatingItemId] = useState<number | null>(null);
   const [removingItemId, setRemovingItemId] = useState<number | null>(null);
   const [error, setError] = useState('');
+  const { setItemCount } = useCartStore();
 
   useEffect(() => {
     loadCart();
@@ -23,6 +26,9 @@ export default function CartPage() {
     try {
       const data = await cartService.getCart();
       setCart(data);
+      // Update global cart count
+      const count = data?.items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
+      setItemCount(count);
     } catch (err) {
       console.error('Error loading cart:', err);
       setError('Unable to load your cart right now.');
@@ -55,6 +61,9 @@ export default function CartPage() {
         item.id === itemId ? { ...item, quantity: nextQty } : item
       );
       setCart({ ...cart, items: updatedItems });
+      // Update global count immediately
+      const count = updatedItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      setItemCount(count);
     }
     
     try {
@@ -62,6 +71,8 @@ export default function CartPage() {
       // Refresh cart data in background without showing loading state
       const freshCart = await cartService.getCart();
       setCart(freshCart);
+      const count = freshCart?.items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
+      setItemCount(count);
     } catch (err) {
       console.error('Error updating cart item:', err);
       setError('Failed to update item quantity.');
@@ -79,6 +90,9 @@ export default function CartPage() {
     if (cart?.items) {
       const updatedItems = cart.items.filter((item: any) => item.id !== itemId);
       setCart({ ...cart, items: updatedItems });
+      // Update global count immediately
+      const count = updatedItems.reduce((sum: number, item: any) => sum + item.quantity, 0);
+      setItemCount(count);
     }
     
     try {
@@ -86,6 +100,8 @@ export default function CartPage() {
       // Refresh cart data in background without showing loading state
       const freshCart = await cartService.getCart();
       setCart(freshCart);
+      const count = freshCart?.items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
+      setItemCount(count);
     } catch (err) {
       console.error('Error removing cart item:', err);
       setError('Failed to remove item.');
@@ -108,7 +124,8 @@ export default function CartPage() {
   const hasItems = cart?.items && cart.items.length > 0;
 
   return (
-    <main className="bg-white md:bg-gray-50 md:min-h-[calc(100vh-56px)]">
+    <ProtectedRoute>
+      <main className="bg-white md:bg-gray-50 md:min-h-[calc(100vh-56px)]">
       {/* Header */}
       <div className="hidden md:block bg-white border-b border-gray-200">
         <div className="max-w-[1280px] mx-auto px-16 md:px-24 py-12">
@@ -295,5 +312,6 @@ export default function CartPage() {
         </div>
       </div>
     </main>
+    </ProtectedRoute>
   );
 }

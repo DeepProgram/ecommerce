@@ -7,6 +7,7 @@ import { catalogService } from '@/services/catalogService';
 import { cartService } from '@/services/cartService';
 import { ProductDetailSkeleton } from '@/components/Skeletons';
 import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
 import { useRouter } from 'next/navigation';
 
 interface ProductDetailPageProps {
@@ -26,6 +27,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
   const [imageErrors, setImageErrors] = useState<Set<number>>(new Set());
   
   const { isAuthenticated } = useAuthStore();
+  const { incrementCount } = useCartStore();
   const router = useRouter();
 
   useEffect(() => {
@@ -66,6 +68,7 @@ export default function ProductDetailPage({ params }: ProductDetailPageProps) {
         selectedVariant?.id,
         quantity
       );
+      incrementCount(quantity); // Update header cart count
       alert('Added to cart!');
     } catch (error) {
       console.error('Error adding to cart:', error);

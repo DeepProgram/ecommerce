@@ -2,15 +2,36 @@
 
 import Link from 'next/link';
 import { useAuthStore } from '@/store/authStore';
+import { useCartStore } from '@/store/cartStore';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { authService } from '@/services/authService';
-import { useState } from 'react';
+import { cartService } from '@/services/cartService';
+import { useState, useEffect } from 'react';
 
 export default function Header() {
   const { isAuthenticated, user, clearAuth } = useAuthStore();
+  const { itemCount, setItemCount } = useCartStore();
   const router = useRouter();
   const searchParams = useSearchParams();
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      loadCartCount();
+    } else {
+      setItemCount(0);
+    }
+  }, [isAuthenticated]);
+
+  const loadCartCount = async () => {
+    try {
+      const cart = await cartService.getCart();
+      const count = cart?.items?.reduce((sum: number, item: any) => sum + item.quantity, 0) || 0;
+      setItemCount(count);
+    } catch (error) {
+      console.error('Failed to load cart count:', error);
+    }
+  };
 
   const handleLogout = async () => {
     const refreshToken = localStorage.getItem('refresh_token');
@@ -69,21 +90,35 @@ export default function Header() {
 
           {/* Right Side Actions */}
           <div className="flex items-center gap-16 flex-shrink-0">
-            {/* Cart */}
-            <button 
-              className="relative hover:opacity-70 transition-opacity"
-              onClick={() => router.push('/cart')}
-              aria-label="Shopping cart"
-            >
-              <span className="text-[24px]">🛒</span>
-              <span className="absolute -top-6 -right-6 bg-brand-600 text-white text-[10px] font-bold rounded-full w-18 h-18 flex items-center justify-center">
-                0
-              </span>
-            </button>
+            {/* Cart - Only show when authenticated */}
+            {isAuthenticated && (
+              <button 
+                className="relative hover:opacity-70 transition-opacity flex items-center justify-center"
+                onClick={() => router.push('/cart')}
+                aria-label="Shopping cart"
+              >
+                <span className="text-[24px] leading-none">🛒</span>
+                {itemCount > 0 && (
+                  <span className="absolute -top-[4px] -right-[4px] bg-brand-600 text-white text-[10px] font-bold rounded-full min-w-[18px] h-[18px] px-[4px] flex items-center justify-center">
+                    {itemCount}
+                  </span>
+                )}
+              </button>
+            )}
             
             {/* User Menu */}
             {isAuthenticated ? (
               <div className="flex items-center gap-12">
+                {/* Mobile profile icon */}
+                <button 
+                  onClick={() => router.push('/profile')}
+                  className="sm:hidden hover:opacity-70 transition-opacity flex items-center justify-center"
+                  aria-label="Account"
+                >
+                  <span className="text-[24px] leading-none">👤</span>
+                </button>
+                
+                {/* Desktop profile button */}
                 <button 
                   onClick={() => router.push('/profile')}
                   className="hidden sm:flex items-center gap-8 text-[14px] text-gray-700 hover:text-brand-600 transition-colors"
