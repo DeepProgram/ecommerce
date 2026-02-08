@@ -31,6 +31,18 @@ export default function CheckoutPage() {
     country: '',
   });
 
+  // Billing form state
+  const [billingForm, setBillingForm] = useState({
+    full_name: '',
+    phone: '',
+    address_line1: '',
+    address_line2: '',
+    city: '',
+    state: '',
+    postal_code: '',
+    country: '',
+  });
+
   // Billing same as shipping checkbox
   const [billingSameAsShipping, setBillingSameAsShipping] = useState(true);
 
@@ -80,6 +92,11 @@ export default function CheckoutPage() {
     setShippingForm(prev => ({ ...prev, [name]: value }));
   };
 
+  const handleBillingInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { name, value } = e.target;
+    setBillingForm(prev => ({ ...prev, [name]: value }));
+  };
+
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!hasItems || processing) return; // Prevent multiple submissions
@@ -105,7 +122,11 @@ export default function CheckoutPage() {
         };
         billingAddress = await addressService.createAddress(billingAddressData);
       } else {
-        billingAddress = shippingAddress; // For now, use same address
+        const billingAddressData: AddressFormData = {
+          address_type: 'billing',
+          ...billingForm,
+        };
+        billingAddress = await addressService.createAddress(billingAddressData);
       }
       
       // Create order
@@ -291,6 +312,102 @@ export default function CheckoutPage() {
                       </label>
                     </div>
                   </div>
+
+                  {/* Billing Address (only shown if different from shipping) */}
+                  {!billingSameAsShipping && (
+                    <div className="bg-white border border-gray-200 rounded-xl p-20 shadow-sm">
+                      <h2 className="text-[16px] font-bold text-gray-900 mb-16">Billing Address</h2>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-12">
+                        <div>
+                          <label className="block text-[12px] text-gray-600 mb-6">Full Name *</label>
+                          <input 
+                            name="full_name"
+                            value={billingForm.full_name}
+                            onChange={handleBillingInputChange}
+                            className={inputClass} 
+                            placeholder="John Doe"
+                            required={!billingSameAsShipping}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[12px] text-gray-600 mb-6">Phone *</label>
+                          <input 
+                            name="phone"
+                            value={billingForm.phone}
+                            onChange={handleBillingInputChange}
+                            className={inputClass} 
+                            placeholder="+1 555 123 4567"
+                            required={!billingSameAsShipping}
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-[12px] text-gray-600 mb-6">Address *</label>
+                          <input 
+                            name="address_line1"
+                            value={billingForm.address_line1}
+                            onChange={handleBillingInputChange}
+                            className={inputClass} 
+                            placeholder="123 Main St"
+                            required={!billingSameAsShipping}
+                          />
+                        </div>
+                        <div className="md:col-span-2">
+                          <label className="block text-[12px] text-gray-600 mb-6">Apartment, suite, etc. (optional)</label>
+                          <input 
+                            name="address_line2"
+                            value={billingForm.address_line2}
+                            onChange={handleBillingInputChange}
+                            className={inputClass} 
+                            placeholder="Apt 4B"
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[12px] text-gray-600 mb-6">City *</label>
+                          <input 
+                            name="city"
+                            value={billingForm.city}
+                            onChange={handleBillingInputChange}
+                            className={inputClass} 
+                            placeholder="San Francisco"
+                            required={!billingSameAsShipping}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[12px] text-gray-600 mb-6">State/Province *</label>
+                          <input 
+                            name="state"
+                            value={billingForm.state}
+                            onChange={handleBillingInputChange}
+                            className={inputClass} 
+                            placeholder="California"
+                            required={!billingSameAsShipping}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[12px] text-gray-600 mb-6">Postal Code *</label>
+                          <input 
+                            name="postal_code"
+                            value={billingForm.postal_code}
+                            onChange={handleBillingInputChange}
+                            className={inputClass} 
+                            placeholder="94105"
+                            required={!billingSameAsShipping}
+                          />
+                        </div>
+                        <div>
+                          <label className="block text-[12px] text-gray-600 mb-6">Country *</label>
+                          <input 
+                            name="country"
+                            value={billingForm.country}
+                            onChange={handleBillingInputChange}
+                            className={inputClass} 
+                            placeholder="United States"
+                            required={!billingSameAsShipping}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  )}
 
                 {/* Payment */}
                 <div className="bg-white border border-gray-200 rounded-xl p-20 shadow-sm">
