@@ -51,7 +51,7 @@ export default function ProductsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white md:bg-gray-50">
+    <div className="min-h-[calc(100vh-120px)] bg-white md:bg-gray-50 md:min-h-[calc(100vh-56px)]">
       {/* Breadcrumb - Desktop Only */}
       <div className="hidden md:block bg-white border-b border-gray-200">
         <div className="max-w-[1280px] mx-auto px-16 md:px-24 py-12">
